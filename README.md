@@ -46,6 +46,7 @@ See the [instructions for contributors](CONTRIBUTING.md).
 The primary authors are various LLMs and AI agents, but the following human beings have contributed to this repository:
 
 - [Jukka Suomela](https://jukkasuomela.fi)
+- Magnús M. Halldórsson
 
 ## Contact
 
