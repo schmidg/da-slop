@@ -1,0 +1,907 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!55!black,citecolor=green!40!black,urlcolor=blue!55!black]{hyperref}
+
+\setlength{\emergencystretch}{3em}
+\setlist{nosep,leftmargin=2em}
+\allowdisplaybreaks
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\dist}{\operatorname{dist}}
+\newcommand{\diam}{\operatorname{diam}}
+\newcommand{\Pot}{\operatorname{Pot}}
+\newcommand{\Imp}{\operatorname{Imp}}
+\newcommand{\IR}{\operatorname{IR}}
+\newcommand{\poly}{\operatorname{poly}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\N}{N}
+\newcommand{\LOC}{\textnormal{\textsc{Loc}}}
+\newcommand{\LOP}{\textnormal{\textsc{Lop}}}
+\newcommand{\LOPE}{\textnormal{\textsc{Lope}}}
+\newcommand{\LOCAL}{\textnormal{\textsc{Local}}}
+
+\title{Direct Sequence Localization for Distributed Potential Problems}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.5em}
+
+\begin{abstract}
+We study distributed local search in the deterministic \LOCAL\ model.  Balliu,
+Boudier, d'Amore, Kuhn, Olivetti, Schmid, and Suomela introduced locally optimal
+problems and showed that every bounded-degree problem governed by a local potential
+admits a polylogarithmic-round algorithm.  Their analysis localizes each improving
+move separately and then localizes a sequence of moves in an auxiliary interaction
+graph.
+
+The main observation here is that the whole sequence can instead be replayed inside
+one ball of the original graph.  Minimality pays for the discarded part of every
+move, and the only remaining error is charged to potential terms crossing the ball
+boundary.  For a radius-$\rho$ potential, normalized local scale $K$, and normalized
+upper bound $P$ on the global potential, this gives a deterministic algorithm in
+\[
+ O_{\rho}\!\left(
+ \left[1+\min\left\{
+ K(\Delta^\rho+1)\log n\log(2P),
+ \sqrt{Kn\log n\log(2P)}
+ \right\}\right]
+ \log^2 n\,\poly(\log\log n)
+ \right)
+\]
+rounds.  Thus, for fixed local scale, the polynomial part is
+$\min\{\Delta^\rho,\sqrt n\}$.
+
+For edge potentials the boundary is sharper.  In particular, ordinary locally
+optimal cut has a deterministic
+\[
+ O\!\left(\min\{\Delta\log^4 n,\sqrt n\log^3 n\}
+ \poly(\log\log n)\right)
+\]
+algorithm.  Together with the randomized and quantum lower bound of Balliu et al.,
+this determines the polynomial dependence on $\Delta$ and $n$ up to logarithmic
+factors.  As supporting evidence that the boundary-volume dependence of such generic
+local-search algorithms is inherent, we also analyze the stronger task in which no
+subset of a radius-$s$ ball may improve a cut.  For every fixed $s\geq 1$, its
+deterministic upper bound and randomized/quantum lower bound have the same polynomial
+part
+\[
+ \min\{\Delta^{s+1},\sqrt{\Delta n},n^{2/3}\}.
+\]
+\end{abstract}
+
+\section{Introduction}
+
+In an undirected graph $G=(V,E)$, a cut is a labeling $x:V\to\{0,1\}$.
+It is \emph{locally optimal} if flipping any one vertex does not increase the
+number of cut edges.  Equivalently, every vertex has at least as many neighbors on
+the other side of the cut as on its own side.  A centralized improvement process is
+immediate: repeatedly flip an improving vertex.  Since each flip increases the cut
+by at least one edge, the process stops after at most $|E|$ flips.  The challenge is
+to parallelize this process without creating a long cascade of mutually dependent
+repairs.
+
+We work in the standard synchronous \LOCAL\ model
+\cite{Linial1992,NaorStockmeyer1995}: vertices have distinct identifiers, messages
+have unbounded size, and after $T$ rounds a vertex can know its entire radius-$T$
+neighborhood.  Local computation is free.  The problem of finding a locally optimal
+cut will be abbreviated by $\LOC$.
+
+Balliu et al.~\cite{BalliuEtAl2026} introduced a broad framework of locally optimal
+problems (\LOP s).  A global potential is written as a sum of bounded-radius local
+terms, and an invalid vertex has a one-block relabeling that strictly decreases this
+potential.  They obtained the first polylogarithmic-round algorithms for all
+bounded-degree \LOP s.  For $\LOC$, their deterministic complexity is
+$O(\Delta^2\log^8 n\,\poly(\log\log n))$, and they proved an
+$\Omega(\min\{\Delta,\sqrt n\})$ lower bound for randomized and quantum-\LOCAL
+algorithms in the usual range $\Delta\leq cn$, for any fixed $c<1$.
+
+The present work improves the upper bound by changing the localization argument.
+The prior proof first replaces a large improving move by a small-diameter move and
+then represents moves as vertices of an auxiliary interaction graph.  The two
+localization steps multiply their losses.  Here the entire sequence is replayed
+directly inside a ball of $G$.  The proof counts occurrences of original vertices,
+so the auxiliary graph is unnecessary.
+
+\subsection{What is new and what is inherited}
+
+The definitions of \LOP, improving sets, improving ratios, and minimal improving
+sets, as well as the threshold-scheduling paradigm, originate in
+Balliu et al.~\cite{BalliuEtAl2026}.  We also use the deterministic strong-diameter
+network decomposition of Ghaffari and Grunau~\cite{GhaffariGrunau2024}; this line of
+work began with the polylogarithmic deterministic decomposition of Rozho\v{n} and
+Ghaffari~\cite{RozhonGhaffari2020}.
+
+The new ingredients and conclusions are:
+\begin{enumerate}
+  \item a direct replay lemma for a whole sequence of minimal improving moves;
+  \item a one-step sequence-localization theorem in the original graph;
+  \item a deterministic generic \LOP\ algorithm whose polynomial dependence improves
+  from $\Delta^{2\rho}$ to $\min\{\Delta^\rho,\sqrt n\}$ at fixed local scale;
+  \item an edge-boundary specialization giving a deterministic
+  $\widetilde O(\min\{\Delta,\sqrt n\})$ algorithm for $\LOC$, which matches the
+  known lower bound up to logarithmic factors; and
+  \item a supporting upper/lower-bound pair for radius-$s$ local cut.  The latter is
+  not needed for the $\LOC$ algorithm; its role is to show that the polynomial
+  boundary-volume scales encountered by generic local-search methods occur on
+  concrete simple unweighted graphs.
+\end{enumerate}
+
+The distinction is summarized below.  The table suppresses logarithmic factors and
+fixed-radius constants.
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Problem & Previously known & Result here \\
+\midrule
+General radius-$\rho$ \LOP
+  & $\widetilde O(K^2\Delta^{2\rho})$ deterministic
+  & $\widetilde O_\rho(\min\{K\Delta^\rho,\sqrt{Kn}\})$ deterministic \\
+Ordinary $\LOC$
+  & $\widetilde O(\Delta^2)$ deterministic
+  & $\widetilde O(\min\{\Delta,\sqrt n\})$ deterministic \\
+Radius-$s$ local cut
+  & --
+  & $\widetilde\Theta_s(\min\{\Delta^{s+1},\sqrt{\Delta n},n^{2/3}\})$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The $\widetilde\Theta_s$ notation in the last row compares a deterministic upper
+bound with a randomized and quantum lower bound, and hence refers only to the
+polynomial dependence on $n$ and $\Delta$.
+
+\section{Model and normalized potential parameters}
+
+For $A\subseteq V$, let $\N_t[A]=\{u:\dist(u,A)\leq t\}$, and write
+$\N_t[v]=\N_t[\{v\}]$.  A radius-$\rho$ local-potential problem has a finite output
+alphabet and a potential
+\begin{equation}\label{eq:potential}
+  \Pot_G(\ell)=\sum_{z\in V}\phi_z(\ell|_{\N_\rho[z]}),
+  \qquad 0\leq \phi_z\leq \Lambda.
+\end{equation}
+The input labels and the topology inside $\N_\rho[z]$ may be arguments of $\phi_z$;
+we suppress them.  A ``vertex block'' may contain the output of a vertex and its
+incident half-edge outputs.  Thus this notation includes the formal \LOP\ model of
+\cite{BalliuEtAl2026}; all that is used below is that legal block relabelings are
+finite and restrictions of a legal multi-block relabeling are legal.
+
+We assume that whenever the current output is invalid at a vertex, some relabeling
+of its block decreases \eqref{eq:potential} by at least $\lambda>0$.  Divide all
+potentials by $\lambda$ and define
+\begin{equation}\label{eq:KP}
+  K=\frac{\Lambda}{\lambda},
+  \qquad
+  P\geq \max_{\ell}\frac{\Pot_G(\ell)}{\lambda}.
+\end{equation}
+Henceforth potentials are normalized so that the guaranteed correction is at least
+one, each local term lies in $[0,K]$, and every global potential is at most $P$.
+The algorithm only needs a common upper bound on $P$.  The universal choice $P=Kn$
+is available for \eqref{eq:potential}; retaining $P$ makes the dependence on the
+maximum global potential explicit.  The factor $K$ is the one unavoidable local
+scale parameter.  For a fixed problem family at bounded degree, it is a constant.
+
+\begin{definition}[Improving move]
+For a labeling $\ell$, a move $M=(A,\ell_A)$ consists of a nonempty support
+$A\subseteq V$ and a legal relabeling supported on $A$.  If $\ell^M$ is the
+resulting labeling, define
+\[
+  \Imp_\ell(M)=\Pot_G(\ell)-\Pot_G(\ell^M),
+  \qquad
+  \IR_\ell(M)=\frac{\Imp_\ell(M)}{|A|}.
+\]
+The move is improving if $\Imp_\ell(M)>0$.  An improving move of ratio $q$ is
+\emph{minimal} if every move supported on a proper nonempty subset of $A$ has ratio
+at most $q$.
+\end{definition}
+
+Every improving move contains a minimal improving move of at least the same ratio:
+choose, among all improving moves supported inside its support, one of maximum ratio
+and then inclusion-minimal support.  A sequence $M_1,\ldots,M_h$ is
+$\beta$-improving if $M_i$ is evaluated after the preceding moves and has ratio at
+least $\beta$.
+
+Let
+\begin{equation}\label{eq:ballsize}
+  B_\rho(\Delta)=1+\Delta\sum_{j=0}^{\rho-1}(\Delta-1)^j
+  =O_\rho(\Delta^\rho)
+\end{equation}
+be the maximum size of a radius-$\rho$ ball in a graph of maximum degree $\Delta$.
+
+\section{Direct localization of an improving sequence}
+
+Fix an initial labeling $\ell_0$ and a sequence of minimal $\beta$-improving moves
+$M_i=(A_i,\ell_i)$, where $\ell_i$ is the labeling after move $i$.  Count repeated
+changes by
+\[
+  w(u)=|\{i:u\in A_i\}|,
+  \qquad w(U)=\sum_{u\in U}w(u).
+\]
+The sequence decreases the normalized potential by at least $\beta w(V)$, while the
+initial potential is at most $P$.  Therefore
+\begin{equation}\label{eq:totalmass}
+  w(V)\leq \frac{P}{\beta}.
+\end{equation}
+
+For $U\subseteq V$, the \emph{replay inside $U$} starts from $\ell_0$, follows the
+labels of the true sequence on $U$, and permanently freezes all blocks outside $U$
+at their labels in $\ell_0$.  Thus replay step $i$ applies only $A_i\cap U$.
+
+\begin{lemma}[Direct replay]\label{lem:replay}
+Let $\ell'_h$ be the final labeling obtained by replaying a minimal
+$\beta$-improving sequence inside $U$.  Then
+\[
+ \Pot_G(\ell_0)-\Pot_G(\ell'_h)
+ \geq
+ \beta w(U)-2K B_\rho(\Delta)
+ \sum_{\substack{u\in U\\ \dist(u,V\setminus U)\leq 2\rho}}w(u).
+\]
+More precisely, every occurrence of a boundary vertex can be charged only for local
+terms centered in $\N_\rho[u]$, and each such term contributes discrepancy at most
+$2K$.
+\end{lemma}
+
+\begin{proof}
+Consider step $i$ and put $B=A_i\cap U$ and $C=A_i\setminus U$.  Let $q_i$ be the
+ratio of the full move.  In the true state immediately before step $i$, first apply
+the prescribed part on $C$.  Minimality says that its improvement is at most
+$q_i|C|$; this is also true if the improvement is nonpositive.  Since the full move
+improves by $q_i(|B|+|C|)$, the subsequent prescribed relabeling on $B$ has marginal
+improvement at least $q_i|B|$.
+
+Compare this marginal with replay step $i$.  Before and after the step, the two
+worlds agree on $U$.  A local term can have different marginals only if its
+radius-$\rho$ scope contains both a changed vertex of $B$ and a vertex outside $U$.
+Such a changed vertex lies within distance $2\rho$ of $V\setminus U$.  A fixed
+occurrence of $u$ belongs to at most $B_\rho(\Delta)$ local scopes, and the difference
+between two marginals of one term in $[0,K]$ is at most $2K$.  Hence replay step $i$
+improves by at least
+\[
+ q_i|B|-2K B_\rho(\Delta)
+ |\{u\in B:\dist(u,V\setminus U)\leq2\rho\}|.
+\]
+Sum over $i$ and telescope the replay potential.  Since $q_i\geq\beta$, the first
+sum is at least $\beta w(U)$, and the second sum is exactly the asserted occurrence
+count.
+\end{proof}
+
+The proof intentionally overcounts a local term when several changed vertices affect
+it.  Counting possible centers as well as changed occurrences gives a square-root
+alternative.
+
+\begin{theorem}[Sequence localization]\label{thm:localization}
+Let $0<\eps<\beta$, and suppose a vertex $v$ occurs in a sequence of minimal
+$\beta$-improving moves.  In the initial labeling there is a minimal improving move
+of ratio at least $\beta-\eps$, contained in the union of the sequence and in a ball
+around $v$ of radius
+\begin{equation}\label{eq:localradius}
+ L=O_\rho\!\left(
+ 1+\min\left\{
+ \frac{K(\Delta^\rho+1)}{\eps}\log\!\left(1+\frac{P}{\beta}\right),
+ \sqrt{\frac{Kn}{\eps}\log\!\left(1+\frac{P}{\beta}\right)}
+ \right\}\right).
+\end{equation}
+No diameter assumption on the moves in the sequence is required.
+\end{theorem}
+
+\begin{proof}
+Let $U_i=\N_{2\rho i}[v]$, $W_i=w(U_i)$, and for $i\geq1$ put
+\[
+ a_i=W_i-W_{i-1},
+ \qquad
+ Z_i=|U_{i+1}\setminus U_{i-1}|.
+\]
+Because $v$ occurs, $W_0\geq1$.  For every $k$,
+\begin{equation}\label{eq:harmonic}
+ \sum_{i=1}^k\frac{a_i}{W_i}
+ \leq \sum_{i=1}^k\log\frac{W_i}{W_{i-1}}
+ =\log\frac{W_k}{W_0}
+ \leq\log\!\left(1+\frac{P}{\beta}\right),
+\end{equation}
+where the last inequality uses \eqref{eq:totalmass}.  The annuli
+$U_{i+1}\setminus U_{i-1}$ overlap at most twice, so
+\begin{equation}\label{eq:annulus-volume}
+ \sum_{i=1}^k Z_i\leq2n.
+\end{equation}
+
+Replay inside $U_i$.  Any changed vertex within distance $2\rho$ of the complement
+belongs to $U_i\setminus U_{i-1}$, whose total occurrence mass is $a_i$.  The center
+of every discrepant local term lies in $U_{i+1}\setminus U_{i-1}$.  Repeating the
+proof of Lemma~\ref{lem:replay}, but using the smaller of the changed-vertex and
+center counts, shows that the replay loses at most
+\begin{equation}\label{eq:two-boundaries}
+ 2K a_i\min\{B_\rho(\Delta),Z_i\}.
+\end{equation}
+
+Suppose the quantity in \eqref{eq:two-boundaries} exceeds $\eps W_i$ for every
+$1\leq i\leq k$.  Using the first term in the minimum and
+\eqref{eq:harmonic} gives
+\[
+ k=O_\rho\!\left(
+ \frac{K(\Delta^\rho+1)}{\eps}
+ \log\!\left(1+\frac{P}{\beta}\right)\right).
+\]
+Using the second term, then Cauchy--Schwarz and
+\eqref{eq:annulus-volume}, gives
+\[
+ \log\!\left(1+\frac{P}{\beta}\right)
+ \geq \frac{\eps}{2K}\sum_{i=1}^k\frac1{Z_i}
+ \geq \frac{\eps k^2}{4Kn}.
+\]
+If some $Z_i=0$, the boundary error is already zero.  Consequently, within the
+number of annuli displayed in \eqref{eq:localradius}, some $i$ has boundary loss at
+most $\eps W_i$.
+
+For this $i$, replay improves the initial potential by at least
+$(\beta-\eps)W_i>0$.  Let $A$ be the set of blocks on which the final replay differs
+from $\ell_0$.  Every vertex of $A$ occurs at least once, hence $|A|\leq W_i$; the
+replay move has ratio at least $\beta-\eps$.  Taking a minimal improving submove
+cannot decrease the ratio.  Its support is contained in $U_i$ and in the union of
+the original sequence.
+\end{proof}
+
+\section{The generic deterministic algorithm}
+
+We use a strong-diameter network decomposition: a coloring of clusters such that
+adjacent clusters have different colors and every cluster has bounded diameter in
+its induced subgraph.  Ghaffari and Grunau~\cite{GhaffariGrunau2024} give, in
+$\widetilde O(\log^2 n)$ deterministic rounds, a decomposition with
+$Q=O(\log n)$ colors and strong diameter $D=O(\log n)$.
+
+Set
+\[
+ \eta=\frac1{8Q},
+ \qquad
+ R_j=\frac14+\frac{j-1}{4Q},
+ \qquad 1\leq j\leq Q+1.
+\]
+Then $R_{j+1}-\eta>R_j$ and $R_{Q+1}=1/2$.  Choose $L$ from
+Theorem~\ref{thm:localization} uniformly for $\beta\geq1/4$ and $\eps=\eta$, and let
+$p=2(L+\rho)+1$.
+
+Compute a network decomposition of the power graph $G^p$.  For a cluster $C$, let
+its write region be $\N_L[C]$ and its observation region be $\N_{L+2\rho}[C]$.
+Distinct clusters of one color have write regions at distance greater than $2\rho$,
+so no local potential term is affected by two of them.  A cluster has diameter at
+most $pD$ when power-graph edges are replaced by paths in $G$; its observation region
+can therefore be gathered at a leader in $O(pD+L+\rho)$ rounds.
+
+Process the $Q$ colors in order.  In a color-$j$ cluster, the leader repeatedly
+chooses a maximum-ratio improving relabeling supported in the write region and
+applies it while its ratio is at least $R_j$.  The leader can brute-force this finite
+optimization because local computation is unbounded.  A maximum-ratio choice is
+minimal.  The simulation terminates because the label space is finite and every
+accepted move strictly decreases the potential.  Same-color simulations are
+independent and may be serialized for analysis.
+
+\begin{theorem}[Generic deterministic upper bound]\label{thm:generic}
+Every normalized radius-$\rho$ local-potential problem described in
+Section~2 can be solved deterministically in
+\begin{equation}\label{eq:generic-bound}
+ O_\rho\!\left(
+ \left[1+\min\left\{
+ K(\Delta^\rho+1)\log n\log(2P),
+ \sqrt{Kn\log n\log(2P)}
+ \right\}\right]
+ \log^2 n\,\poly(\log\log n)
+ \right)
+\end{equation}
+\LOCAL\ rounds.  If $K=O(1)$ and $P\leq n^{O(1)}$, this is
+$\widetilde O_\rho(\min\{\Delta^\rho,\sqrt n\})$.
+\end{theorem}
+
+\begin{proof}
+It remains to prove correctness and count rounds.  Suppose the final labeling is
+invalid at $v$, and let $C$ be the decomposition cluster containing $v$, of color
+$j$.  Consider the state just after color $j$ was processed.  Serialize every move
+made in later color phases and append, in the final state, a correcting singleton
+move at $v$.  Every actual later move is minimal and has ratio at least $R_{j+1}$;
+the appended correction has ratio at least one and is minimal.  Thus these moves
+form a minimal $R_{j+1}$-improving sequence in which $v$ occurs.
+
+Apply Theorem~\ref{thm:localization} to this sequence.  In the state immediately
+after color $j$, it produces a move of ratio at least
+$R_{j+1}-\eta>R_j$ supported in $\N_L[v]\subseteq\N_L[C]$.  This contradicts
+exhaustion of the write region during phase $j$.  Hence the final labeling is valid.
+
+One round on $G^p$ costs at most $p$ rounds on $G$.  The decomposition costs
+$p\widetilde O(\log^2 n)$ rounds.  The $Q$ color phases cost
+$O(Q(pD+L+\rho))=O(p\log^2 n)$ rounds.  Substituting $\eps=\Theta(1/\log n)$ and
+$\beta\geq1/4$ in \eqref{eq:localradius} yields \eqref{eq:generic-bound}.
+\end{proof}
+
+\begin{remark}[Comparison with prior work]
+The prior deterministic bound of Balliu et al.~\cite{BalliuEtAl2026} has polynomial
+part $K^2\Delta^{2\rho}$.  Theorem~\ref{thm:generic} removes one localization step,
+one power of the local scale, and one power of the radius-$\rho$ ball volume.  It also
+exposes the alternative $\sqrt{Kn}$ scale.  No matching lower bound is asserted for
+every abstract \LOP; the tight statement below is for the concrete edge-potential
+problem $\LOC$.
+\end{remark}
+
+\section{Edge potentials and a tight algorithm for locally optimal cut}
+
+Suppose the potential is a sum over edges,
+\[
+ \Pot_G(\ell)=\sum_{e\in E}\psi_e(\ell|_e),
+ \qquad 0\leq\psi_e\leq\Gamma.
+\]
+After division by the minimum correction $\lambda$, put $K_E=\Gamma/\lambda$ and
+again let $P$ bound the normalized global potential.  Such problems are called
+locally optimal problems on edges (\LOPE s) in~\cite{BalliuEtAl2026}.
+
+\begin{lemma}[Edge replay]\label{lem:edge-replay}
+For a sequence replayed inside $U$,
+\[
+ \Pot_G(\ell_0)-\Pot_G(\ell'_h)
+ \geq \beta w(U)-2K_E\sum_{u\in U}w(u)\deg_{V\setminus U}(u).
+\]
+\end{lemma}
+
+\begin{proof}
+Repeat the proof of Lemma~\ref{lem:replay}.  A marginal can differ between the true
+and frozen-outside executions only on an edge with one changed endpoint in $U$ and
+the other endpoint outside $U$.  The discrepancy per crossing edge is at most
+$2K_E$.  Charging it to the changed endpoint proves the formula.
+\end{proof}
+
+Take $U_i=\N_i[v]$, let $a_i$ be the occurrence mass of the $i$th layer, and put
+$Z_i=|U_{i+1}\setminus U_{i-1}|$.  A changed boundary vertex has at most
+$\min\{\Delta,Z_i\}$ neighbors outside $U_i$.  The proof of
+Theorem~\ref{thm:localization} therefore gives an edge-potential localization radius
+\begin{equation}\label{eq:edge-localization}
+ O\!\left(1+\min\left\{
+ \frac{K_E\Delta}{\eps}\log\!\left(1+\frac{P}{\beta}\right),
+ \sqrt{\frac{K_E n}{\eps}\log\!\left(1+\frac{P}{\beta}\right)}
+ \right\}\right).
+\end{equation}
+Using this radius in the scheduler from Section~4 proves the following edge version
+of Theorem~\ref{thm:generic}.
+
+\begin{theorem}[Edge-potential upper bound]\label{thm:edge-upper}
+A normalized edge-potential problem can be solved deterministically in
+\[
+ O\!\left(
+ \left[1+\min\left\{
+ K_E\Delta\log n\log(2P),
+ \sqrt{K_E n\log n\log(2P)}
+ \right\}\right]
+ \log^2 n\,\poly(\log\log n)
+ \right)
+\]
+rounds.
+\end{theorem}
+
+For $\LOC$, use the potential
+\[
+ \Pot_G(x)=|\{uv\in E:x(u)=x(v)\}|,
+\]
+the number of uncut edges.  If $v$ is invalid, flipping $v$ decreases the potential
+by a positive integer, hence by at least one.  Thus $K_E=1$, and the maximum global
+potential is $P=|E|\leq n^2/2$.
+
+\begin{corollary}[Tight deterministic algorithm for $\LOC$]\label{cor:loc}
+Locally optimal cut can be solved deterministically in
+\[
+ O\!\left(
+ \min\{\Delta\log^4 n,\sqrt n\log^3 n\}
+ \poly(\log\log n)
+ \right)
+\]
+rounds.
+\end{corollary}
+
+Balliu et al.~\cite[Theorem~5.2 and Corollary~5.6]{BalliuEtAl2026} proved that, for
+every fixed $c<1$ and $\Delta\leq cn$, randomized and quantum-\LOCAL
+algorithms with constant global success probability require
+$\Omega(\min\{\Delta,\sqrt n\})$ rounds.  Corollary~\ref{cor:loc} therefore settles
+the polynomial dependence on both parameters.  This tightness claim does not include
+the remaining logarithmic factors.
+
+\section{A supporting barrier: radius-local cuts}
+
+This section is logically independent of the generic algorithm.  It studies a
+stronger cut-stability notion in order to test whether the boundary-volume scales
+behind direct localization can be improved for all local-search tasks.
+
+\begin{definition}[Radius-$s$ locally optimal cut]
+For a fixed integer $s\geq1$, a cut $x:V\to\{0,1\}$ is \emph{radius-$s$ locally
+optimal} if, for every $v\in V$ and every $S\subseteq\N_s[v]$, simultaneously
+flipping all vertices of $S$ does not increase the number of cut edges.
+\end{definition}
+
+Ordinary $\LOC$ corresponds to allowing only singleton flips, while radius-$s$
+optimality quantifies over every coalition contained in one radius-$s$ ball.
+
+\begin{theorem}[Radius-local cut bounds]\label{thm:radius-cut}
+For every fixed $s\geq1$, radius-$s$ locally optimal cut has a deterministic
+algorithm with complexity
+\begin{equation}\label{eq:radius-upper}
+ O_s\!\left(
+ \min\{\Delta^{s+1}\log^4 n,
+        \sqrt{\Delta n}\log^3 n,
+        n^{2/3}\log^{8/3}n\}
+ \poly(\log\log n)
+ \right).
+\end{equation}
+Conversely, for all sufficiently large feasible parameter values, every randomized
+or quantum-\LOCAL\ algorithm with global success probability at least $2/3$
+requires
+\begin{equation}\label{eq:radius-lower}
+ \Omega_s\!\left(
+ \min\{\Delta^{s+1},\sqrt{\Delta n},n^{2/3}\}
+ \right)
+\end{equation}
+rounds, even on connected simple unweighted graphs.
+\end{theorem}
+
+The upper bound is included for completeness, but the main message for generic
+algorithms is the lower bound.  In the degree-dominated regime
+$\Delta\leq n^{1/(2s+1)}$, the $\Omega_s(\Delta^{s+1})$ term exactly matches the
+volume scale of an edge interaction combined with a radius-$s$ correction.  Thus no
+algorithm that solves all such local-search instances can improve this degree
+exponent.  This is evidence about the limits of generic methods, not a claim that
+every abstract \LOP\ individually satisfies this lower bound.
+
+\subsection{Weighted normalization and the upper bound}
+
+For each vertex define
+\begin{equation}\label{eq:cost}
+ b(u)=\max_{z\in\N_s[u]}|\N_s[z]|,
+ \qquad c(u)=\frac1{b(u)},
+ \qquad c(S)=\sum_{u\in S}c(u).
+\end{equation}
+These values are computable from radius-$2s$ neighborhoods.
+
+\begin{lemma}[A permitted correction has unit cost]\label{lem:unit-cost}
+If $S\subseteq\N_s[v]$, then $c(S)\leq1$.
+\end{lemma}
+
+\begin{proof}
+For $u\in\N_s[v]$, undirectedness gives $v\in\N_s[u]$, and hence
+$b(u)\geq|\N_s[v]|$.  Therefore
+$c(S)\leq |S|/|\N_s[v]|\leq1$.
+\end{proof}
+
+For a nonempty flip $S$, define its weighted improving ratio as its cut improvement
+divided by $c(S)$.  A positive move is weighted minimal if no submove has larger
+weighted ratio.  Consider a sequence of weighted minimal moves of ratio at least
+$\beta$.  If $w(u)$ counts occurrences, write
+\[
+ \mu(u)=c(u)w(u),
+ \qquad W(U)=\sum_{u\in U}\mu(u).
+\]
+Since the cut potential ranges over an interval of length at most $|E|$,
+\begin{equation}\label{eq:weighted-total}
+ \beta W(V)\leq |E|.
+\end{equation}
+If $v$ occurs, then $W(\{v\})\geq c(v)\geq1/n$.
+
+\begin{lemma}[Weighted replay]\label{lem:weighted-replay}
+Replaying the sequence inside $U$ decreases the uncut-edge potential by at least
+\[
+ \beta W(U)-2\sum_{u\in U}\mu(u)b(u)\deg_{V\setminus U}(u).
+\]
+\end{lemma}
+
+\begin{proof}
+At one step, split the full support into $A\subseteq U$ and $B\subseteq V\setminus
+U$.  If the full weighted ratio is $q$, weighted minimality bounds the improvement
+of $B$ alone by $qc(B)$.  Hence applying $A$ after $B$ gains at least $qc(A)$.
+Freezing the exterior changes the marginal only on crossing edges, with discrepancy
+at most two per edge.  Sum over steps and use
+$w(u)=\mu(u)/c(u)=\mu(u)b(u)$.
+\end{proof}
+
+\begin{lemma}[Weighted sequence localization]\label{lem:weighted-localization}
+Let $0<\eps<\beta$ and suppose $v$ occurs in a weighted minimal
+$\beta$-improving sequence.  In the initial cut there is a weighted minimal move of
+ratio at least $\beta-\eps$, supported in the sequence union and within distance
+\begin{equation}\label{eq:weighted-radius}
+ O_s\!\left(1+\min\left\{
+ \frac{\Delta(\Delta^s+1)}{\eps}\log\!\left(1+\frac{n^3}{\beta}\right),
+ \sqrt{\frac{\Delta n}{\eps}\log\!\left(1+\frac{n^3}{\beta}\right)},
+ \left(\frac{n^2}{\eps}\log\!\left(1+\frac{n^3}{\beta}\right)\right)^{1/3}
+ \right\}\right)
+\end{equation}
+of $v$.
+\end{lemma}
+
+\begin{proof}
+Set $h=2s+1$, $U_i=\N_{hi}[v]$, $W_i=W(U_i)$,
+$a_i=W_i-W_{i-1}$, and $Z_i=|U_{i+1}\setminus U_{i-1}|$.  A boundary vertex
+$u\in U_i$ lies in $U_i\setminus U_{i-1}$.  If it has a neighbor outside $U_i$,
+then for every $z\in\N_s[u]$, the ball $\N_s[z]$ lies inside
+$U_{i+1}\setminus U_{i-1}$.  Consequently
+\[
+ b(u)\leq\min\{O_s(\Delta^s),Z_i\},
+ \qquad
+ \deg_{V\setminus U_i}(u)\leq\min\{\Delta,Z_i\}.
+\]
+Lemma~\ref{lem:weighted-replay} bounds the replay error by
+\begin{equation}\label{eq:weighted-error}
+ O_s(a_i)\min\{\Delta(\Delta^s+1),\Delta Z_i,Z_i^2\}.
+\end{equation}
+
+By \eqref{eq:weighted-total}, $W(V)\leq n^2/(2\beta)$, while
+$W_0\geq1/n$.  Hence
+\begin{equation}\label{eq:weighted-harmonic}
+ \sum_{i=1}^k\frac{a_i}{W_i}
+ \leq\log\frac{W_k}{W_0}
+ \leq\log\!\left(1+\frac{n^3}{\beta}\right).
+\end{equation}
+Also $\sum_{i=1}^kZ_i\leq2n$.  If \eqref{eq:weighted-error} exceeded
+$\eps W_i$ for every $i\leq k$, its three terms would give, respectively,
+\[
+ \log\!\left(1+\frac{n^3}{\beta}\right)
+ =\Omega_s\!\left(\frac{\eps k}{\Delta(\Delta^s+1)}\right),
+\]
+\[
+ \log\!\left(1+\frac{n^3}{\beta}\right)
+ =\Omega\!\left(\frac{\eps}{\Delta}\sum_{i=1}^k\frac1{Z_i}\right)
+ =\Omega\!\left(\frac{\eps k^2}{\Delta n}\right),
+\]
+and, using convexity of $z\mapsto z^{-2}$,
+\[
+ \log\!\left(1+\frac{n^3}{\beta}\right)
+ =\Omega\!\left(\eps\sum_{i=1}^k\frac1{Z_i^2}\right)
+ =\Omega\!\left(\frac{\eps k^3}{n^2}\right).
+\]
+Thus a good annulus occurs within \eqref{eq:weighted-radius}.  Replaying there gains
+at least $(\beta-\eps)W_i$.  Its final support $A$ satisfies $c(A)\leq W_i$, so the
+replay has weighted ratio at least $\beta-\eps$; taking a weighted minimal submove
+finishes the proof.
+\end{proof}
+
+To obtain \eqref{eq:radius-upper}, use the scheduler of Section~4 with
+$\eta=1/(8Q)$ and $R_j=1/4+(j-1)/(4Q)$.  A violated radius-$s$ constraint has an
+integer cut improvement at least one and, by Lemma~\ref{lem:unit-cost}, weighted
+ratio at least one.  The write region for a cluster is enlarged from $\N_L[C]$ to
+$\N_{L+s}[C]$.  Compute the decomposition on
+$G^p$ for $p=2(L+s+1)+1$ and gather $\N_{L+s+2}[C]$ at the leader.  Thus distinct
+same-color write regions are at distance greater than one, and no edge potential is
+affected by two simultaneous cluster simulations.  If a final improving coalition
+lies in $\N_s[v]$, choose a vertex of that coalition and apply
+Lemma~\ref{lem:weighted-localization}; the localized move lies in the enlarged write
+region and contradicts exhaustion of the appropriate color phase.  Substituting
+$\eps=\Theta(1/\log n)$ in
+\eqref{eq:weighted-radius} and multiplying by the $O(\log^2 n\,\poly(\log\log n))$
+decomposition overhead gives \eqref{eq:radius-upper}.
+
+\subsection{The lower bound}
+
+The construction adapts the causal indistinguishability strategy used for $\LOC$ in
+Section~5 and Appendix~B of Balliu et al.~\cite{BalliuEtAl2026}.  We give the graph
+construction and parameter optimization in full.
+
+\begin{lemma}[Adjustable expanding core]\label{lem:core}
+For every fixed $s\geq1$, there is $q_0(s)$ such that, for all integers
+$q\geq q_0(s)$ and $q\leq M\leq q^s$, there is a simple bipartite graph $C$ with
+parts of size $M$, maximum degree at most $2q$, and
+\[
+ |\partial_C X|\geq \frac q4|X|
+ \qquad\text{for every }0<|X|\leq M.
+\]
+Here $\partial_C X$ is the set of core edges with exactly one endpoint in $X$.
+\end{lemma}
+
+\begin{proof}
+Include each possible bipartite edge independently with probability $q/M$.  Every
+degree has expectation $q$, so a Chernoff bound and a union bound give
+$\Pr[\Delta(C)>2q]\leq2M e^{-q/3}$.  If $X$ contains $a$ vertices of one side and
+$b$ of the other, with $t=a+b\leq M$, then
+\[
+ \mathbb E|\partial_CX|
+ =\frac qM\bigl(a(M-b)+b(M-a)\bigr)
+ =q\left(t-\frac{2ab}{M}\right)
+ \geq\frac{qt}{2}.
+\]
+Another Chernoff bound gives
+$\Pr[|\partial_CX|<qt/4]\leq e^{-qt/16}$.  There are at most
+$\binom{2M}{t}\leq(2eM/t)^t$ choices of size $t$.  Since
+$\log M\leq s\log q=o(q)$ for fixed $s$, the sum of all failure probabilities is
+less than one for sufficiently large $q$.
+\end{proof}
+
+Turn this core into a radius-$s$ gadget.  Index the vertices on each side by $M$
+distinct words from $[q]^s$ and attach the trie of these words to a new root, with
+the bipartition side included in the first branch.  The root has degree at most
+$2q$, other internal trie vertices have degree at most $q+1$, every core vertex is
+at distance exactly $s$ from the root, and the gadget has $\Theta_s(M)$ vertices.
+Let $a=\lfloor q/16\rfloor$.  Interfaces will use only side-$0$ core vertices and
+will give each such vertex at most $2a+1$ interface edges.  Including its tree-parent
+edge, a core vertex has fewer than $q/4$ neighbors outside the core when $q$ is large.
+
+\begin{lemma}[Rigidity]\label{lem:rigidity}
+In every radius-$s$ locally optimal cut, a gadget core is labeled by one of its two
+proper bipartite colorings.
+\end{lemma}
+
+\begin{proof}
+Let $\sigma(u)\in\{0,1\}$ denote the bipartition side of a core vertex and call
+$x(u)\oplus\sigma(u)$ its phase.  If phases are not constant, let $X$ be the smaller
+phase class, so $0<|X|\leq M$.  Every edge of $\partial_CX$ is currently uncut and
+becomes cut when $X$ is flipped.  At most $(2a+2)|X|$ non-core edges can be lost.
+By Lemma~\ref{lem:core},
+\[
+ |\partial_CX|\geq(q/4)|X|>(2a+2)|X|
+\]
+for large $q$.  The move is permitted because the entire core lies in the
+radius-$s$ ball of the root, contradicting local optimality.
+\end{proof}
+
+The common label on side-$0$ core vertices is the gadget phase.  Flipping every
+vertex of a gadget is also a permitted radius-$s$ move.  It changes no internal edge
+and toggles precisely the interface edges.
+
+Number the side-$0$ vertices modulo $M$.  For every shift
+$t\in\{0,\ldots,a-1\}$, the edges $j\leftrightarrow j+t\pmod M$ form a perfect
+matching between two gadgets.  The $a$ matchings are edge-disjoint.  Hence every
+integer interface weight at most $aM$ is realized by taking a prefix of these edges,
+with interface degree at most $a$ per port vertex.
+
+Let $k=\lfloor aM/2\rfloor$.  Take gadgets
+\[
+ A_0,\ldots,A_{k-1},
+ \qquad B_0,\ldots,B_{k-1},
+ \qquad Z.
+\]
+For $1\leq i\leq k-1$, join $A_{i-1}$ to $A_i$ and $B_{i-1}$ to $B_i$ by
+interfaces of weight $2i$.  Form two inputs:
+\begin{itemize}
+  \item in $G_{\mathrm{odd}}$, join $A_{k-1}$ to $B_{k-1}$ by an interface of
+  weight $2k$ and add one edge from $A_{k-1}$ to $Z$;
+  \item in $G_{\mathrm{even}}$, join each of $A_{k-1}$ and $B_{k-1}$ to $Z$ by
+  an interface of weight $2k$.
+\end{itemize}
+The graphs are connected, simple, and have maximum degree at most $3q$ for large
+$q$.
+
+\begin{lemma}[Forced parity]\label{lem:parity}
+Let $u$ and $v$ be side-$0$ representatives in $A_0$ and $B_0$, respectively.
+Every radius-$s$ locally optimal cut satisfies
+\[
+ x(u)\ne x(v)\quad\text{in }G_{\mathrm{odd}},
+ \qquad
+ x(u)=x(v)\quad\text{in }G_{\mathrm{even}}.
+\]
+\end{lemma}
+
+\begin{proof}
+By Lemma~\ref{lem:rigidity}, every gadget has a phase.  On either arm, an inward
+interface has weight two larger than the preceding outward interface.  If the
+inward interface were uncut, flipping the whole gadget would gain its full weight
+and lose at most the outward weight, a strict improvement.  At the exceptional tip
+of $G_{\mathrm{odd}}$, the one extra edge can reduce the gain by only one.  Hence
+all main-chain interfaces are cut.
+
+The path of interfaces from $A_0$ to $B_0$ has $2k-1$ links in
+$G_{\mathrm{odd}}$ and $2k$ links in $G_{\mathrm{even}}$.  Side-$0$ labels equal
+gadget phases, and a cut interface joins opposite phases.  The stated parity follows.
+\end{proof}
+
+Give corresponding vertices the same identifiers in the two inputs.  The graphs
+differ only at the inner tips and at $Z$.  Any path from $u$ or $v$ to a differing
+edge crosses $\Omega_s(k)$ gadget interfaces.  Therefore, for
+$T\leq c_s k$, the joint radius-$T$ input neighborhoods of $(u,v)$ are identical in
+the two graphs.  The standard causal indistinguishability argument applies to
+randomized \LOCAL, and also to quantum-\LOCAL\ with prior entanglement
+independent of the input topology; see
+\cite{GavoilleKosowskiMarkiewicz2009,AkbariEtAl2025,BalliuEtAl2026}.  The joint
+output distribution at $(u,v)$ is the same on both inputs.  If it assigns probability
+$p$ to equality, global success is at most $p$ on $G_{\mathrm{even}}$ and at most
+$1-p$ on $G_{\mathrm{odd}}$.  One input therefore has success probability at most
+$1/2$.  Consequently
+\begin{equation}\label{eq:k-lower}
+ T=\Omega_s(k)=\Omega_s(qM).
+\end{equation}
+
+There are $\Theta(qM)$ gadgets, each with $\Theta_s(M)$ vertices, so the construction
+uses $\Theta_s(qM^2)$ vertices.  It may be padded to any larger target size by a path
+attached at $Z$, identically in the two inputs.  Choose a sufficiently small constant
+multiple
+\[
+ q=\Theta_s(\min\{\Delta,n^{1/3}\}),
+ \qquad
+ M=\min\left\{q^s,\left\lfloor\sqrt{\frac{n}{C_s q}}\right\rfloor\right\}.
+\]
+For sufficiently large feasible parameters, $q\leq M\leq q^s$, the construction
+fits in $n$ vertices, and its degree is at most $\Delta$.  Equation
+\eqref{eq:k-lower} becomes
+\[
+ T=\Omega_s\!\left(
+ \min\{\Delta^{s+1},\sqrt{\Delta n},n^{2/3}\}
+ \right),
+\]
+which proves \eqref{eq:radius-lower} and completes
+Theorem~\ref{thm:radius-cut}.
+
+\section{Discussion}
+
+The direct replay argument isolates the source of the speedup: a sequence of local
+improvements should be localized as a sequence, in the original graph, rather than
+as a collection of vertices in a second graph.  Minimality controls the discarded
+portion of every move.  Once that cost is paid, only an annular boundary remains,
+and the two ways of counting that boundary produce the degree and square-root
+branches of the running time.
+
+For ordinary locally optimal cut, edge boundaries make the resulting algorithm
+polynomially optimal in both $\Delta$ and $n$.  For general local potentials,
+Theorem~\ref{thm:generic} is an upper bound rather than a universal characterization:
+special algebraic structure may permit faster algorithms.  The radius-local cut
+construction shows, however, that larger correction neighborhoods genuinely realize
+the boundary-volume exponents and that no generic algorithm covering the entire
+class can avoid them.
+
+Three questions remain open.  First, the logarithmic factors in
+Corollary~\ref{cor:loc} are not known to be tight.  Second, at constant degree there
+is still a gap between deterministic, randomized, and quantum complexities.  Third,
+it would be useful to identify structural conditions on a potential---beyond being
+an edge sum---that replace the generic local scale $K$ by a smaller intrinsic
+boundary parameter.
+
+\begin{thebibliography}{10}
+
+\bibitem{AkbariEtAl2025}
+A.~Akbari, X.~Coiteux-Roy, F.~D'Amore, F.~Le Gall, H.~Lievonen,
+D.~Melnyk, A.~Modanese, S.~Pai, M.~Renou, V.~Rozho\v{n}, and J.~Suomela.
+\newblock Online locality meets distributed quantum computing.
+\newblock In \emph{Proceedings of the 57th Annual ACM Symposium on Theory of
+Computing (STOC)}, pages 1295--1306, 2025.
+
+\bibitem{BalliuEtAl2026}
+A.~Balliu, T.~Boudier, F.~d'Amore, F.~Kuhn, D.~Olivetti, G.~Schmid, and
+J.~Suomela.
+\newblock Distributed algorithms for potential problems.
+\newblock \emph{arXiv:2507.12038v4}, 2026.
+
+\bibitem{GavoilleKosowskiMarkiewicz2009}
+C.~Gavoille, A.~Kosowski, and M.~Markiewicz.
+\newblock What can be observed locally?
+\newblock In \emph{Proceedings of the 23rd International Symposium on Distributed
+Computing (DISC)}, volume 5805 of \emph{LNCS}, pages 243--257, 2009.
+
+\bibitem{GhaffariGrunau2024}
+M.~Ghaffari and C.~Grunau.
+\newblock Near-optimal deterministic network decomposition and ruling set, and
+improved {MIS}.
+\newblock In \emph{Proceedings of the 65th IEEE Symposium on Foundations of
+Computer Science (FOCS)}, pages 2148--2179, 2024.
+\newblock Also available as arXiv:2410.19516.
+
+\bibitem{Linial1992}
+N.~Linial.
+\newblock Locality in distributed graph algorithms.
+\newblock \emph{SIAM Journal on Computing}, 21(1):193--201, 1992.
+
+\bibitem{NaorStockmeyer1995}
+M.~Naor and L.~J. Stockmeyer.
+\newblock What can be computed locally?
+\newblock \emph{SIAM Journal on Computing}, 24(6):1259--1277, 1995.
+
+\bibitem{RozhonGhaffari2020}
+V.~Rozho\v{n} and M.~Ghaffari.
+\newblock Polylogarithmic-time deterministic network decomposition and distributed
+derandomization.
+\newblock In \emph{Proceedings of the 52nd Annual ACM Symposium on Theory of
+Computing (STOC)}, pages 350--363, 2020.
+
+\end{thebibliography}
+
+\end{document}

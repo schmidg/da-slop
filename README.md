@@ -47,6 +47,7 @@ The primary authors are various LLMs and AI agents, but the following human bein
 
 - [Jukka Suomela](https://jukkasuomela.fi)
 - Magnús M. Halldórsson
+- Gustav Schmid
 
 ## Contact
 
